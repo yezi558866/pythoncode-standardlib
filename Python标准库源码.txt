@@ -1,0 +1,171 @@
+=核心模块=
+==介绍==
+===内建函数和异常===
+“__builtin__”：len,int,range...
+"exceptions":定义所有内建异常。
+
+===操作系统接口模块===
+"os"：提供文件和进程处理功能；
+"os.path"：提供文件名处理，包括分拆目录名、文件名、后缀等；
+"time/datetime":时间处理。
+
+===类型支持模块===
+"string":常用字符串处理；
+"math":数学计算操作和常量（pi，e等常量）；
+"cmath":为复数提供了和"math"一样的功能。
+
+===正则表达式===
+"re":正则表达式用于匹配字符串或者特定子字符串的有特定语法的字符串模式。
+
+===语言支持模块===
+"sys":可以访问解释器相关参数，如模块搜索路径，解释器版本号等；
+"operator":模块提供了和内建操作符作用相同的函数；
+"copy":允许复制对象；
+"gc":提供了对垃圾收集的相关控制功能。
+
+
+
+==__builtin__模块==
+===使用元组或者字典中的参数调用函数===
+
+python允许你实时创建函数参数列表，只要把所有参数放入一个元组中，后通过内建的“apply”函数调用函数，如[Example 1-1 #eg-1-1].
+====Example 1-1,使用apply函数====[eg-1-1]
+'''
+File: builtin-apply-example-1.py
+---------------------------------------------
+def function(a,b):
+	print a, b
+
+apply(function, ("whither", "canada?"))
+apply(function, (1, 2 + 3))
+----------------------------------------------
+Result:
+whither canada?
+1 5
+'''
+
+要想把关键字参数传递给一个函数，你可以将一个字典作为"apply"函数的第3个参数，参考[Example 1-2 #eg-1-2].
+====Example 1-2,使用apply函数传递关键字参数====[eg-1-2]
+'''
+File: builtin-apply-example-2.py
+---------------------------------------------
+def function(a,b):
+	print a, b
+
+apply(function, ("crunchy", "frog"))
+apply(function, ("crunchy", {"b":"frog"}))
+apply(function, (), {"a":"crunchy","b":"frog"})
+----------------------------------------------
+Result:
+crunchy frog
+crunchy {'b': 'frog'}
+crunchy frog
+'''
+
+"apply"函数的一个常见用法是把构造的函数参数从子类传递到基类，尤其是构造函数需要接受很多参数的时候，如[Example 1-3 #eg-1-3].
+====Example 1-3,使用apply函数调用基类的构造函数====[eg-1-3]
+'''
+File: builtin-apply-example-3.py
+---------------------------------------------
+class Rectangle:
+	def __init__(self, color="white", width=10, height=10):
+		print "create a", color, self, "sized", width, "x", height
+
+class RoundedRectangle(Rectangle):
+	def __init__(self, **kw):
+		apply(Rectangle.__init__, (self,), kw)
+
+rect = Rectangle(color="green", height=100, width=100)
+rect = RoundedRectangle(color="blue", height=20)
+----------------------------------------------
+Result:
+create a green <__main__.Rectangle instance at 0x7fccc45027a0> sized 100 x 100
+create a blue <__main__.RoundedRectangle instance at 0x7fccc4502830> sized 10 x 20
+'''
+备注："*"标记元组，  "**"标记字典。
+以下两个语句是等价的：
+'''
+result = function(*args, **kwargs)
+result = apply(function, args, kwargs)
+'''
+
+===加载和重载模块===
+"import"或者"from-import"导入外部模块，其实靠调用内建函数"__import__"来工作。
+这个可以动态的调用函数，只有知道模块名称时，这将很方便。[Example 1-4 #eg-1-4] 很方展示了这种用法，动态地导入所有以"-plugin"结尾的模块。
+====Example 1-4,使用__import__函数加载模块====[eg-1-4]
+'''
+File: builtin-import-example-1.py
+---------------------------------------------
+import glob, os
+
+modules = []
+
+for module_file in glob.glob("*-plugin.py"):
+	try:
+		module_name, ext = os.path.splitext(os.path.basename(module_file))
+		module = __import__(module_name)
+		modules.append(module)
+	except ImportError:
+		pass #ignore broken modules
+
+# say hello to all modules
+for module in modules:
+	module.hello()
+----------------------------------------------
+Result:
+example-plugin says hello
+'''
+
+
+====Example 1-5,Plug-in例子====[eg-1-5]
+'''
+File: example-plugin.py
+---------------------------------------------
+def hello():
+	print "example-plugin says hello"
+----------------------------------------------
+'''
+
+[Example 1-6 #eg-1-6] 展示了如何根据给定模块名和函数名获得想要的函数对象。
+====Example 1-6,使用__import__函数获得特定函数====[eg-1-6]
+'''
+File: builtin-import-example-2.py
+---------------------------------------------
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
+def getfunctionbyname(module_name, function_name):
+	module = __import__(module_name)
+	return getattr(module, function_name)
+
+print repr(getfunctionbyname("dumbdm", "open"))
+----------------------------------------------
+Result:
+
+'''
+
+也可以使用这个函数实现延迟化的模块导入(lazy module loading)。例如在[Example 1-7 #eg-1-7]中的"string"模块只在第一次使用的时候导入。
+====Example 1-7,使用__import__函数实现延迟导入====[eg-1-7]
+'''
+File: builtin-import-example-3.py
+---------------------------------------------
+#!/usr/bin/python 
+# -*- coding:utf-8 -*-
+
+class LazyImport:
+	def __init__(self, module_name):
+		self.module_name = module_name
+		self.module = None
+	def __getattr__(self, name):
+		if self.module is None:
+			self.module = __import__(self.module_name)
+		return getattr(self.module, name)
+
+string = LazyImport("string")
+
+print string.lowercase
+----------------------------------------------
+Result:
+abcdefghijklmnopqrstuvwxyz
+'''
+
